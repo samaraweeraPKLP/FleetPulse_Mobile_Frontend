@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "FleetPulse",
+    "slug": "Fleet-pulse",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/AppIcon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splashscreen.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#393970"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.lakshan1234.fleetpulse"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "04c9947a-d934-4f37-971f-dcf22840486e"
+      }
+    }
+  }
+}
