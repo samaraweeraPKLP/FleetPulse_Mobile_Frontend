@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,6 +9,7 @@ import axios from 'axios';
 
 const DashboardScreen = ({ navigation }) => {
   const [userData, setUserData] = useState(null);
+  const [selectedRectangle, setSelectedRectangle] = useState(null);
 
   const fetchUserProfile = useCallback(async () => {
     try {
@@ -76,21 +77,21 @@ const DashboardScreen = ({ navigation }) => {
       <View style={styles.profileContainer}>
         <View style={styles.profileRectangle}>
           <View style={styles.avatarContainer}>
-          <TouchableOpacity onPress={handleUserProfile}>
-            <View style={styles.userProfile}>
-              {profilePicture ? (
-                <Image
-                  source={{ uri: `data:image/png;base64,${profilePicture}` }}
-                  style={styles.avatar}
-                />
-              ) : (
-                <Image
-                  source={require('../assets/man.png')}
-                  style={styles.avatar}
-                />
-              )}
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity onPress={handleUserProfile}>
+              <View style={styles.userProfile}>
+                {profilePicture ? (
+                  <Image
+                    source={{ uri: `data:image/png;base64,${profilePicture}` }}
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <Image
+                    source={require('../assets/man.png')}
+                    style={styles.avatar}
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
             <TouchableOpacity onPress={handleResetPassword}>
               <Text style={styles.changePasswordText}>Change{'\n'}password</Text>
             </TouchableOpacity>
@@ -106,27 +107,49 @@ const DashboardScreen = ({ navigation }) => {
       </View>
       <View style={styles.midContainer}>
         <View style={styles.row}>
-          <TouchableOpacity style={styles.rectangle} onPress={handleNewTrip}>
-            <Ionicons name="car" size={50} color="black" />
+          <TouchableOpacity 
+            style={[
+              styles.rectangle, 
+              selectedRectangle === 'newTrip' && { borderColor: 'red' }
+            ]} 
+            onPress={handleNewTrip}>
+            <Ionicons name="car" size={50} color="#e3e8ee" />
             <Text style={styles.boxText}>Start Trip</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.rectangle} onPress={handleFuelRefill}>
-            <Ionicons name="funnel-sharp" size={50} color="black" />
+          <TouchableOpacity 
+            style={[
+              styles.rectangle, 
+              selectedRectangle === 'fuelRefill' && { borderColor: 'red' }
+            ]} 
+            onPress={handleFuelRefill}>
+            <Ionicons name="funnel-sharp" size={50} color="#e3e8ee" />
             <Text style={styles.boxText}>Fuel Refill</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.row}>
-          <TouchableOpacity style={styles.rectangle} onPress={handleNewAccident}>
-            <FontAwesome5 name="car-crash" size={50} color="black" />
+          <TouchableOpacity 
+            style={[
+              styles.rectangle, 
+              selectedRectangle === 'newAccident' && { borderColor: 'red' }
+            ]} 
+            onPress={handleNewAccident}>
+            <FontAwesome5 name="car-crash" size={50} color="#e3e8ee" />
             <Text style={styles.boxText}>New Accident</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.rectangle} onPress={handleMaintenance}>
-            <Ionicons name="construct" size={50} color="black" />
+          <TouchableOpacity 
+            style={[
+              styles.rectangle, 
+              selectedRectangle === 'maintenance' && { borderColor: 'red' }
+            ]} 
+            onPress={handleMaintenance}>
+            <Ionicons name="construct" size={50} color="#e3e8ee" />
             <Text style={styles.boxText}>Maintenance</Text>
           </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.footer}></View>
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>© 2024 G3 Technology. All Rights Reserved.</Text>
+      </View>
     </View>
   );
 };
@@ -134,7 +157,7 @@ const DashboardScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#e3e8ee',
   },
   midContainer: {
     flexDirection: 'column',
@@ -155,21 +178,24 @@ const styles = StyleSheet.create({
   changePasswordText:{
     marginTop:5,
     textAlign: 'center',
+    color:'#393970'
   },
   rectangle: {
     width: 160,
     height: 160,
-    backgroundColor: '#f3e3ca',
+    backgroundColor: '#393970',
     marginVertical: 5,
     marginHorizontal: 10,
     borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#393970',
   },
   boxText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: 'black',
+    color: '#e3e8ee',
     marginTop: 5,
   },
   profileContainer: {
@@ -178,10 +204,10 @@ const styles = StyleSheet.create({
   },
   profileRectangle: {
     flexDirection: 'row',
-    width: '90%',
+    width: '85%',
     height: 160,
-    backgroundColor: '#f3e3ca',
-    borderRadius: 20,
+    backgroundColor: '#c5c6e6',
+    borderRadius: 15,
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 40,
@@ -190,7 +216,7 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     alignItems: 'center',
-    marginLeft: 20,
+    marginLeft: 5,
   },
   userInfo: {
     justifyContent: 'center',
@@ -200,11 +226,12 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: 'black'
+    color: '#393970'
   },
   date: {
     fontSize: 16,
-    color: 'gray'
+    color: 'gray',
+    marginTop:5,
   },
   label: {
     margin: 5,
@@ -219,6 +246,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    justifyContent: 'center', // Center the text vertically
+    alignItems: 'center', // Center the text horizontally
+  },
+  footerText: {
+    color: '#e3e8ee',
+    textAlign: 'center',
+    fontSize: 12,
   },
 });
 

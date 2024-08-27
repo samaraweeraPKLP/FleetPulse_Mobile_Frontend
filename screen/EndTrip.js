@@ -17,8 +17,14 @@ const EndTripScreen = ({ route, navigation }) => {
     const formattedEndDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format for endDate
     setEndDate(formattedEndDate);
 
-    const formattedEndTime = `${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')}:${today.getSeconds().toString().padStart(2, '0')}`; // HH:mm:ss format for endTime
-    setEndTime(formattedEndTime);
+    // Update time every second
+    const interval = setInterval(() => {
+      const now = new Date();
+      const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+      setEndTime(formattedTime);
+    }, 1000);
+
+    return () => clearInterval(interval); // Clear the interval when the component unmounts
   }, []);
 
   useEffect(() => {
@@ -41,7 +47,6 @@ const EndTripScreen = ({ route, navigation }) => {
     };
   }, []);
 
-
   const handleCancel = () => {
     setEndMeterValue('');
   };
@@ -52,7 +57,11 @@ const EndTripScreen = ({ route, navigation }) => {
       Alert.alert('Error', 'Please fill in all fields to end the trip.');
       return;
     }
-  
+    // Check if StartMeterValue is less than EndMeterValue
+    if (parseFloat(endMeterValue) <= parseFloat(StartMeterValue)) {
+      Alert.alert('Error', 'End Meter Value should be greater than Start Meter Value.');
+      return;
+    }
     try {
       const tripData = {
         NIC: NIC,
@@ -61,28 +70,28 @@ const EndTripScreen = ({ route, navigation }) => {
         StartTime: StartTime,
         StartMeterValue: StartMeterValue,
         EndDate: endDate,
-        EndTime: endTime,
+        EndTime: endTime, // Save the updated real-time endTime
         EndMeterValue: parseFloat(endMeterValue),
         Status: Status,
       };
-  
+
       console.log('Sending trip data:', tripData);
-  
+
       const token = await AsyncStorage.getItem('token');
       if (!token) {
         Alert.alert('Error', 'Token not found. Please log in again.');
         return;
       }
-  
+
       await axios.post(TRIP_ENDPOINT, tripData, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
-  
+
       // Clear input fields
       setEndMeterValue('');
-  
+
       Alert.alert('Success', 'Trip added successfully');
       navigation.navigate('Dashboard'); // Navigate to Dashboard after successful trip addition
     } catch (error) {
@@ -90,15 +99,12 @@ const EndTripScreen = ({ route, navigation }) => {
       Alert.alert('Error', 'Failed to add trip. Please try again.');
     }
   };
-  
-  
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : null}
     >
-      
       <Text style={styles.headerTitle}>Enter Trip Details (End)</Text>
 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -126,6 +132,7 @@ const EndTripScreen = ({ route, navigation }) => {
               placeholder="End Time (HH:mm:ss)"
               onChangeText={text => setEndTime(text)}
               value={endTime}
+              editable={false} // Make the endTime field read-only since it updates automatically
             />
           </View>
         </View>
@@ -140,9 +147,8 @@ const EndTripScreen = ({ route, navigation }) => {
         />
 
         <View style={[styles.buttonContainer, isKeyboardVisible && styles.buttonContainerSmall]}>
-        <Button title="Cancel" onPress={handleCancel} type="cancel" />
+          <Button title="Cancel" onPress={handleCancel} type="cancel" />
           <Button title="End" onPress={handleAddTrip} style={styles.button} />
-          
         </View>
       </ScrollView>
 
@@ -175,17 +181,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     marginLeft: '12%',
     color: '#494873',
-  },
-  value: {
-    fontSize: 18,
-    fontWeight: '500',
-    width: '75%',
-    height: 30,
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    marginBottom: '5%',
-    backgroundColor: '#f7f7f7',
-    marginLeft: '12%',
   },
   detail: {
     fontSize: 18,
@@ -236,12 +231,6 @@ const styles = StyleSheet.create({
   footer: {
     backgroundColor: '#393970',
     height: 60,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#e3e8ee',
   },
 });
 
