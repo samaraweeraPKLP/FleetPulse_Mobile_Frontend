@@ -251,7 +251,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginHorizontal: '14%',
     alignItems: 'center',
-    marginTop: '2%'
   },
   buttonContainerSmall: {
     marginTop: 5, // Adjust as per your spacing preference
