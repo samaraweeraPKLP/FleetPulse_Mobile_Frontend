@@ -5,7 +5,7 @@ import BackArrow from '../components/BackArrow';
 import Button from '../components/Button';
 import axios from 'axios';
 import RNPickerSelect from 'react-native-picker-select';
-import { USER_PROFILE_ENDPOINT, GET_ALL_VEHICLES_ENDPOINT } from '../apiConfig';
+import { USER_PROFILE_ENDPOINT, GET_ALL_VEHICLES_ENDPOINT, ADD_FUEL_REFILL_ENDPOINT } from '../apiConfig';
 
 export default function FuelRefillScreen({ navigation }) {
   const [nicNumber, setNicNumber] = useState('');
@@ -46,14 +46,23 @@ export default function FuelRefillScreen({ navigation }) {
           value: vehicle.vehicleRegistrationNo
         })));
 
-        // Automatically set date and time to the current values
         const now = new Date();
         const formattedDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
         setSelectedDate(formattedDate);
-        const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-        setSelectedTime(formattedTime);
-  
+        
+        // Update time every minute
+        const updateTime = () => {
+          const currentTime = new Date();
+          const formattedTime = `${currentTime.getHours().toString().padStart(2, '0')}:${currentTime.getMinutes().toString().padStart(2, '0')}`;
+          setSelectedTime(formattedTime);
+        };
+        
+        updateTime();
+        const timeInterval = setInterval(updateTime, 60000); // Update time every minute
+
         setLoading(false);
+
+        return () => clearInterval(timeInterval); // Cleanup interval on component unmount
       } catch (error) {
         Alert.alert('Error', `An error occurred while fetching user profile: ${error.message}`);
         setLoading(false);
@@ -62,7 +71,6 @@ export default function FuelRefillScreen({ navigation }) {
   
     fetchUserProfileAndVehicles();
 
-    // Add listeners for keyboard events
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
       setKeyboardVisible(true);
     });
@@ -70,7 +78,6 @@ export default function FuelRefillScreen({ navigation }) {
       setKeyboardVisible(false);
     });
 
-    // Clean up listeners
     return () => {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
@@ -82,18 +89,58 @@ export default function FuelRefillScreen({ navigation }) {
   };
 
   const handleCancel = () => {
-    // Reset all input fields
     setVehicleRegistrationNumber('');
     setLiterCount('');
     setRefillType('');
     setCost('');
   };
 
-  const handleSave = () => {
-    // Handle save functionality
-    // You can add the logic to save the fuel refill data here
+  const handleSave = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        Alert.alert('Error', 'Token not found. Please log in again.');
+        return;
+      }
+  
+      const fuelRefillData = {
+        NIC: nicNumber,
+        VehicleRegistrationNo: vehicleRegistrationNumber,
+        Date: selectedDate,
+        Time: selectedTime,
+        LiterCount: parseFloat(literCount),
+        FType: refillType,
+        Cost: parseFloat(cost),
+      };
+  
+      console.log('Fuel Refill Data:', fuelRefillData);
+  
+      const response = await axios.post(ADD_FUEL_REFILL_ENDPOINT, fuelRefillData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+  
+      if (response.status === 201) {
+        Alert.alert('Success', 'Fuel refill data saved successfully.');
+        // Clear all input fields after successful save
+        setVehicleRegistrationNumber('');
+        setLiterCount('');
+        setRefillType('');
+        setCost('');
+        // Optionally reset the date and time to the current values
+        const now = new Date();
+        setSelectedDate(now.toISOString().split('T')[0]);
+        const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        setSelectedTime(formattedTime);
+        navigation.goBack();
+      } else {
+        Alert.alert('Error', 'Failed to save fuel refill data.');
+      }
+    } catch (error) {
+      Alert.alert('Error', `An error occurred: ${error.message}`);
+    }
   };
-
+  
+  
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -101,7 +148,7 @@ export default function FuelRefillScreen({ navigation }) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <BackArrow onPress={handleBack} />
-        <Text style={styles.headerTitle}>Enter Fule Refill Details</Text>
+        <Text style={styles.headerTitle}>Enter Fuel Refill Details</Text>
 
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <Text style={styles.title}>NIC No</Text>
@@ -251,10 +298,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginHorizontal: '14%',
     alignItems: 'center',
+    marginTop: '5%',
+    marginBottom: 20, // Space for the footer
   },
   buttonContainerSmall: {
-    marginTop: 5, // Adjust as per your spacing preference
-    marginBottom: 5
+    marginTop: 10, // Adjust as per your spacing preference
   },
   footer: {
     backgroundColor: '#393970',
@@ -270,7 +318,7 @@ const pickerSelectStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f7f7f7',
     borderRadius: 5,
-    paddingRight: 30, // to ensure the text is not overlapping the dropdown icon
+    paddingRight: 30,
     backgroundColor: '#f7f7f7',
     marginLeft: '12%',
     marginBottom: '5%',
