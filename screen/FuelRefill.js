@@ -24,7 +24,7 @@ export default function FuelRefillScreen({ navigation }) {
       try {
         const username = await AsyncStorage.getItem('username');
         const token = await AsyncStorage.getItem('token');
-  
+
         if (!username || !token) {
           setLoading(false);
           Alert.alert('Error', 'Username or token not found. Please log in again.');
@@ -47,28 +47,18 @@ export default function FuelRefillScreen({ navigation }) {
         })));
 
         const now = new Date();
-        const formattedDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const formattedDate = now.toISOString().split('T')[0];
         setSelectedDate(formattedDate);
-        
-        // Update time every minute
-        const updateTime = () => {
-          const currentTime = new Date();
-          const formattedTime = `${currentTime.getHours().toString().padStart(2, '0')}:${currentTime.getMinutes().toString().padStart(2, '0')}`;
-          setSelectedTime(formattedTime);
-        };
-        
-        updateTime();
-        const timeInterval = setInterval(updateTime, 60000); // Update time every minute
+        const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        setSelectedTime(formattedTime);
 
         setLoading(false);
-
-        return () => clearInterval(timeInterval); // Cleanup interval on component unmount
       } catch (error) {
         Alert.alert('Error', `An error occurred while fetching user profile: ${error.message}`);
         setLoading(false);
       }
     };
-  
+
     fetchUserProfileAndVehicles();
 
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
@@ -93,6 +83,10 @@ export default function FuelRefillScreen({ navigation }) {
     setLiterCount('');
     setRefillType('');
     setCost('');
+    const now = new Date();
+    setSelectedDate(now.toISOString().split('T')[0]);
+    const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    setSelectedTime(formattedTime);
   };
 
   const handleSave = async () => {
@@ -102,7 +96,7 @@ export default function FuelRefillScreen({ navigation }) {
         Alert.alert('Error', 'Token not found. Please log in again.');
         return;
       }
-  
+
       const fuelRefillData = {
         NIC: nicNumber,
         VehicleRegistrationNo: vehicleRegistrationNumber,
@@ -112,21 +106,19 @@ export default function FuelRefillScreen({ navigation }) {
         FType: refillType,
         Cost: parseFloat(cost),
       };
-  
+
       console.log('Fuel Refill Data:', fuelRefillData);
-  
+
       const response = await axios.post(ADD_FUEL_REFILL_ENDPOINT, fuelRefillData, {
         headers: { Authorization: `Bearer ${token}` }
       });
-  
+
       if (response.status === 201) {
         Alert.alert('Success', 'Fuel refill data saved successfully.');
-        // Clear all input fields after successful save
         setVehicleRegistrationNumber('');
         setLiterCount('');
         setRefillType('');
         setCost('');
-        // Optionally reset the date and time to the current values
         const now = new Date();
         setSelectedDate(now.toISOString().split('T')[0]);
         const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
@@ -139,8 +131,7 @@ export default function FuelRefillScreen({ navigation }) {
       Alert.alert('Error', `An error occurred: ${error.message}`);
     }
   };
-  
-  
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -219,7 +210,7 @@ export default function FuelRefillScreen({ navigation }) {
 
           <View style={[styles.buttonContainer, isKeyboardVisible && styles.buttonContainerSmall]}>
             <Button title="Cancel" onPress={handleCancel} type="cancel" />
-            <Button title="Save" onPress={handleSave} style={styles.button} />
+            <Button title="Save" onPress={handleSave} />
           </View>
         </ScrollView>
 
@@ -242,6 +233,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'space-between',
     paddingVertical: 20,
+    paddingBottom: 120, // Ensure there's enough space at the bottom for the buttons
   },
   headerTitle: {
     fontSize: 26,
@@ -249,7 +241,7 @@ const styles = StyleSheet.create({
     color: '#393970',
     alignSelf: 'center',
     marginTop: 20,
-    marginBottom: 10,
+    marginBottom: 30,
   },
   title: {
     fontSize: 20,
@@ -260,14 +252,15 @@ const styles = StyleSheet.create({
   },
   value: {
     fontSize: 18,
-    fontWeight: '500',
     width: '75%',
     height: 30,
     borderRadius: 5,
     paddingHorizontal: 10,
+    fontWeight: '500',
     marginBottom: '5%',
     backgroundColor: '#f7f7f7',
     marginLeft: '12%',
+    lineHeight: 30,
   },
   input: {
     fontSize: 18,
@@ -318,7 +311,7 @@ const pickerSelectStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f7f7f7',
     borderRadius: 5,
-    paddingRight: 30,
+    paddingRight: 30, // to ensure the text is not overlapping the dropdown icon
     backgroundColor: '#f7f7f7',
     marginLeft: '12%',
     marginBottom: '5%',
@@ -327,5 +320,3 @@ const pickerSelectStyles = StyleSheet.create({
     height: 35,
   },
 });
-
-export { FuelRefillScreen };
