@@ -5,7 +5,7 @@ import axios from 'axios';
 import RNPickerSelect from 'react-native-picker-select';
 import BackArrow from '../components/BackArrow';
 import Button from '../components/Button';
-import { GET_ALL_VEHICLES_ENDPOINT, USER_PROFILE_ENDPOINT } from '../apiConfig';
+import { GET_ALL_VEHICLES_ENDPOINT, USER_PROFILE_ENDPOINT, GET_MAINTENANCE_TYPES_ENDPOINT, ADD_VEHICLE_MAINTENANCE_ENDPOINT } from '../apiConfig';
 
 export default function MaintenanceScreen({ navigation }) {
   const [vehicleRegistrationNumber, setVehicleRegistrationNumber] = useState('');
@@ -13,12 +13,15 @@ export default function MaintenanceScreen({ navigation }) {
   const [costForMaintenance, setCostForMaintenance] = useState('');
   const [serviceProvider, setServiceProvider] = useState('');
   const [replaceParts, setReplaceParts] = useState('');
+  const [specialNote, setSpecialNote] = useState('');
   const [vehicles, setVehicles] = useState([]);
+  const [maintenanceTypes, setMaintenanceTypes] = useState([]);
+  const [selectedMaintenanceType, setSelectedMaintenanceType] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
-    const fetchUserProfileAndVehicles = async () => {
+    const fetchUserProfileAndData = async () => {
       try {
         const username = await AsyncStorage.getItem('username');
         const token = await AsyncStorage.getItem('token');
@@ -29,35 +32,43 @@ export default function MaintenanceScreen({ navigation }) {
           return;
         }
 
-        const [userResponse, vehiclesResponse] = await Promise.all([
+        const [userResponse, vehiclesResponse, maintenanceTypesResponse] = await Promise.all([
           axios.get(`${USER_PROFILE_ENDPOINT}?username=${username}`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
           axios.get(GET_ALL_VEHICLES_ENDPOINT, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          axios.get(GET_MAINTENANCE_TYPES_ENDPOINT, {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);
 
         setVehicles(vehiclesResponse.data.map(vehicle => ({
           label: vehicle.vehicleRegistrationNo,
-          value: vehicle.vehicleRegistrationNo
+          value: vehicle.vehicleRegistrationNo,
+          id: vehicle.vehicleId,
         })));
 
-        // Automatically set date to the current date
+        setMaintenanceTypes(maintenanceTypesResponse.data.map(type => ({
+          label: type.typeName,
+          value: type.id,
+        })));
+
+        // Set the maintenance date to the current date
         const now = new Date();
-        const formattedDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const formattedDate = now.toISOString().split('T')[0];
         setMaintenanceDate(formattedDate);
 
         setLoading(false);
       } catch (error) {
-        Alert.alert('Error', `An error occurred while fetching vehicle data: ${error.message}`);
+        Alert.alert('Error', `An error occurred while fetching data: ${error.message}`);
         setLoading(false);
       }
     };
 
-    fetchUserProfileAndVehicles();
+    fetchUserProfileAndData();
 
-    // Add listeners for keyboard events
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
       setKeyboardVisible(true);
     });
@@ -65,7 +76,6 @@ export default function MaintenanceScreen({ navigation }) {
       setKeyboardVisible(false);
     });
 
-    // Clean up listeners
     return () => {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
@@ -77,17 +87,62 @@ export default function MaintenanceScreen({ navigation }) {
   };
 
   const handleCancel = () => {
-    // Reset all input fields
     setVehicleRegistrationNumber('');
     setMaintenanceDate('');
     setCostForMaintenance('');
     setServiceProvider('');
     setReplaceParts('');
+    setSpecialNote('');
+    setSelectedMaintenanceType(null);
   };
 
-  const handleSave = () => {
-    // Handle save functionality
-    // You can add the logic to save the maintenance data here
+  const handleSave = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+
+      if (!token) {
+        Alert.alert('Error', 'Token not found. Please log in again.');
+        return;
+      }
+
+      const selectedVehicle = vehicles.find(vehicle => vehicle.value === vehicleRegistrationNumber);
+      const vehicleId = selectedVehicle?.id;
+
+      if (!vehicleId) {
+        Alert.alert('Error', 'Vehicle ID not found for the selected registration number.');
+        return;
+      }
+
+      const maintenanceData = {
+        maintenanceId: 0,
+        maintenanceDate: new Date(maintenanceDate).toISOString(),
+        cost: parseFloat(costForMaintenance),
+        partsReplaced: replaceParts,
+        serviceProvider: serviceProvider,
+        specialNotes: specialNote,
+        vehicleId: vehicleId,
+        vehicleRegistrationNo: vehicleRegistrationNumber,
+        vehicleMaintenanceTypeId: selectedMaintenanceType,
+        typeName: maintenanceTypes.find(type => type.value === selectedMaintenanceType)?.label || '',
+        status: true,
+      };
+
+      console.log('Sending the following data to the backend:', maintenanceData);
+
+      const response = await axios.post(ADD_VEHICLE_MAINTENANCE_ENDPOINT, maintenanceData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data.status) {
+        Alert.alert('Success', 'Vehicle maintenance added successfully.');
+        handleCancel();
+      } else {
+        Alert.alert('Error', `Failed to add vehicle maintenance: ${response.data.message}`);
+      }
+    } catch (error) {
+      console.error('An error occurred while saving vehicle maintenance:', error.response ? error.response.data : error.message);
+      Alert.alert('Error', `An error occurred: ${error.response ? error.response.data.message : error.message}`);
+    }
   };
 
   return (
@@ -135,12 +190,30 @@ export default function MaintenanceScreen({ navigation }) {
             value={serviceProvider}
           />
 
+          <Text style={styles.title}>Maintenance Type</Text>
+          <RNPickerSelect
+            onValueChange={value => setSelectedMaintenanceType(value)}
+            items={maintenanceTypes}
+            placeholder={{ label: 'Select Maintenance Type', value: null }}
+            style={pickerSelectStyles}
+            useNativeAndroidPickerStyle={false}
+            value={selectedMaintenanceType}
+          />
+
           <Text style={styles.title}>Replace Parts</Text>
           <TextInput
             style={styles.input2}
             placeholder="Replace Parts"
             onChangeText={text => setReplaceParts(text)}
             value={replaceParts}
+          />
+
+          <Text style={styles.title}>Special Note</Text>
+          <TextInput
+            style={styles.input2}
+            placeholder="Enter any special notes"
+            onChangeText={text => setSpecialNote(text)}
+            value={specialNote}
           />
 
           <View style={[styles.buttonContainer, isKeyboardVisible && styles.buttonContainerSmall]}>
@@ -168,7 +241,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'space-between',
     paddingVertical: 20,
-    paddingBottom: 120, // Ensure there's enough space at the bottom for the buttons
+    paddingBottom: 120,
   },
   headerTitle: {
     fontSize: 26,
@@ -215,11 +288,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginHorizontal: '14%',
     alignItems: 'center',
-    marginTop: '5%',
-    marginBottom: 20, // Space for the footer
+    marginTop: '2%',
+    marginBottom: 20,
   },
   buttonContainerSmall: {
-    marginTop: 10, // Adjust as per your spacing preference
+    marginTop: 10,
   },
   footer: {
     backgroundColor: '#393970',
@@ -235,7 +308,7 @@ const pickerSelectStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f7f7f7',
     borderRadius: 5,
-    paddingRight: 30, // to ensure the text is not overlapping the dropdown icon
+    paddingRight: 30,
     backgroundColor: '#f7f7f7',
     marginLeft: '12%',
     marginBottom: '5%',
