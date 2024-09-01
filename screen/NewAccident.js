@@ -180,8 +180,6 @@ export default function NewAccidentScreen({ navigation }) {
               value={loss}
             />
 
-            
-
             <Text style={styles.title}>Driver Injured Status</Text>
             <View style={styles.buttonGroup}>
               
@@ -241,6 +239,7 @@ export default function NewAccidentScreen({ navigation }) {
               multiline
               numberOfLines={4}
             />
+
             <Text style={styles.title}>Upload Images</Text>
             <View style={styles.imageContainer}>
               {images.map((image, index) => (
@@ -252,7 +251,6 @@ export default function NewAccidentScreen({ navigation }) {
                 </TouchableOpacity>
               )}
             </View>
-            
 
             <View style={[styles.buttonContainer, isKeyboardVisible && styles.buttonContainerSmall]}>
               <Button title="Cancel" onPress={handleCancel} type="cancel" />
