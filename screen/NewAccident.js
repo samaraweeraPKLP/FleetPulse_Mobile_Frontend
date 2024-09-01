@@ -1,43 +1,68 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TextInput, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform, Alert, Keyboard, Image, TouchableOpacity } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { StyleSheet, View, Text, TextInput, ScrollView, KeyboardAvoidingView, Platform, Keyboard, Alert ,TouchableOpacity} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import BackArrow from '../components/BackArrow';
 import Button from '../components/Button';
+import { USER_PROFILE_ENDPOINT, GET_ALL_VEHICLES_ENDPOINT, ADD_ACCIDENT_ENDPOINT } from '../apiConfig';
 import axios from 'axios';
 import RNPickerSelect from 'react-native-picker-select';
-import { GET_ALL_VEHICLES_ENDPOINT, CREATE_ACCIDENT_ENDPOINT } from '../apiConfig'; // Add your API endpoint for creating an accident
 
 export default function NewAccidentScreen({ navigation }) {
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [location, setLocation] = useState('');
+  const [nicNumber, setNicNumber] = useState('');
   const [vehicleRegistrationNumber, setVehicleRegistrationNumber] = useState('');
-  const [nic, setNic] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
+  const [venue, setVenue] = useState('');
+  const [specialNotes, setSpecialNotes] = useState('');
   const [loss, setLoss] = useState('');
-  const [driverInjuredStatus, setDriverInjuredStatus] = useState('');
-  const [helperInjuredStatus, setHelperInjuredStatus] = useState('');
-  const [vehicleDamagedStatus, setVehicleDamagedStatus] = useState('');
-  const [specialNotes, setSpecialNotes] = useState(''); // Added state for special notes
-  const [images, setImages] = useState([]);
+  const [driverInjuredStatus, setDriverInjuredStatus] = useState(false);
+  const [helperInjuredStatus, setHelperInjuredStatus] = useState(false);
+  const [vehicleDamagedStatus, setVehicleDamagedStatus] = useState(false);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
-    const fetchVehicles = async () => {
+    const fetchUserProfileAndVehicles = async () => {
       try {
-        const response = await axios.get(GET_ALL_VEHICLES_ENDPOINT);
-        setVehicles(response.data.map(vehicle => ({
+        const username = await AsyncStorage.getItem('username');
+        const token = await AsyncStorage.getItem('token');
+
+        if (!username || !token) {
+          setLoading(false);
+          Alert.alert('Error', 'Username or token not found. Please log in again.');
+          return;
+        }
+
+        const [userResponse, vehiclesResponse] = await Promise.all([
+          axios.get(`${USER_PROFILE_ENDPOINT}?username=${username}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          axios.get(GET_ALL_VEHICLES_ENDPOINT, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
+
+        setNicNumber(userResponse.data?.nic);
+        setVehicles(vehiclesResponse.data.map(vehicle => ({
           label: vehicle.vehicleRegistrationNo,
           value: vehicle.vehicleRegistrationNo
         })));
+
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0];
+        setSelectedDate(formattedDate);
+        const formattedTime = `${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')}`;
+        setSelectedTime(formattedTime);
+
         setLoading(false);
       } catch (error) {
-        Alert.alert('Error', `An error occurred while fetching vehicles: ${error.message}`);
+        Alert.alert('Error', `An error occurred while fetching user profile: ${error.message}`);
         setLoading(false);
       }
     };
 
-    fetchVehicles();
+    fetchUserProfileAndVehicles();
 
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
       setKeyboardVisible(true);
@@ -57,130 +82,120 @@ export default function NewAccidentScreen({ navigation }) {
   };
 
   const handleCancel = () => {
-    // Reset all input fields
-    setDate(new Date().toISOString().split('T')[0]);
-    setLocation('');
     setVehicleRegistrationNumber('');
-    setNic('');
+    setVenue('');
+    setSpecialNotes('');
     setLoss('');
-    setDriverInjuredStatus('');
-    setHelperInjuredStatus('');
-    setVehicleDamagedStatus('');
-    setSpecialNotes(''); // Reset special notes
-    setImages([]);
+    setDriverInjuredStatus(false);
+    setHelperInjuredStatus(false);
+    setVehicleDamagedStatus(false);
+    const today = new Date();
+    setSelectedDate(today.toISOString().split('T')[0]);
+    const formattedTime = `${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')}`;
+    setSelectedTime(formattedTime);
   };
 
   const handleSave = async () => {
-    if (!date || !location || !vehicleRegistrationNumber || !nic || !loss || !driverInjuredStatus || !helperInjuredStatus || !vehicleDamagedStatus) {
-      Alert.alert('Validation Error', 'All fields are required.');
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('Venue', location);
-    formData.append('DateTime', date);
-    formData.append('SpecialNotes', specialNotes); // Add special notes
-    formData.append('Loss', loss);
-    formData.append('DriverInjuredStatus', driverInjuredStatus);
-    formData.append('HelperInjuredStatus', helperInjuredStatus);
-    formData.append('VehicleDamagedStatus', vehicleDamagedStatus);
-    formData.append('NIC', nic);
-    formData.append('VehicleRegistrationNo', vehicleRegistrationNumber);
-
-    images.forEach((image, index) => {
-      formData.append('Photos', {
-        uri: image.uri,
-        type: 'image/jpeg', // Update if needed based on image type
-        name: `photo${index}.jpg`,
-      });
-    });
-
     try {
-      const response = await axios.post(CREATE_ACCIDENT_ENDPOINT, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        Alert.alert('Error', 'Token not found. Please log in again.');
+        return;
+      }
+
+      const accidentData = {
+        NIC: nicNumber,
+        VehicleRegistrationNo: vehicleRegistrationNumber,
+        Date: selectedDate,
+        Time: selectedTime,
+        Venue: venue,
+        SpecialNotes: specialNotes,
+        Loss: loss,
+        DriverInjuredStatus: driverInjuredStatus ? 1 : 0,
+        HelperInjuredStatus: helperInjuredStatus ? 1 : 0,
+        VehicleDamagedStatus: vehicleDamagedStatus ? 1 : 0,
+        Status: true
+      };
+
+      console.log('Accident Data:', accidentData);
+
+      const response = await axios.post(ADD_ACCIDENT_ENDPOINT, accidentData, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       if (response.status === 201) {
-        Alert.alert('Success', 'Accident report saved successfully.');
+        Alert.alert('Success', 'Accident data saved successfully.');
         handleCancel(); // Reset form fields
-        navigation.goBack(); // Navigate back after successful save
+        navigation.goBack();
+      } else {
+        Alert.alert('Error', 'Failed to save accident data.');
       }
     } catch (error) {
-      Alert.alert('Error', `An error occurred while saving the accident report: ${error.message}`);
-    }
-  };
-
-  const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setImages([...images, ...result.selected]);
+      Alert.alert('Error', `An error occurred: ${error.message}`);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <BackArrow onPress={handleBack} />
-        <Text style={styles.headerTitle}>New Accident Report</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : null}
+    >
+      <BackArrow onPress={handleBack} />
+      <Text style={styles.headerTitle}>Enter Accident Details</Text>
 
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.innerContainer}>
-            
-            <View style={styles.dateTimeItem}>
-              <Text style={styles.title}>Date</Text>
-              <TextInput
-                style={[styles.input, styles.dateTimeInput]}
-                placeholder="Date (YYYY-MM-DD)"
-                onChangeText={text => setDate(text)}
-                value={date}
-              />
-            </View>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <Text style={styles.title}>NIC No</Text>
+        <Text style={styles.value}>{nicNumber}</Text>
 
-            <Text style={styles.title}>Location</Text>
+        <Text style={styles.title}>Vehicle Registration Number</Text>
+        <RNPickerSelect
+          onValueChange={value => setVehicleRegistrationNumber(value)}
+          items={vehicles}
+          placeholder={{ label: 'Select Vehicle Registration Number', value: null }}
+          style={pickerSelectStyles}
+          useNativeAndroidPickerStyle={false}
+          value={vehicleRegistrationNumber}
+        />
+
+        <View style={styles.dateTimeContainer}>
+          <View style={styles.dateTimeItem}>
+            <Text style={styles.title}>Date</Text>
             <TextInput
-              style={styles.input}
-              placeholder="Location"
-              onChangeText={text => setLocation(text)}
-              value={location}
+              style={[styles.input, styles.dateTimeInput]}
+              placeholder="Date (YYYY-MM-DD)"
+              onChangeText={text => setSelectedDate(text)}
+              value={selectedDate}
             />
+          </View>
 
-            <Text style={styles.title}>Vehicle Registration Number</Text>
-            <RNPickerSelect
-              onValueChange={value => setVehicleRegistrationNumber(value)}
-              items={vehicles}
-              placeholder={{ label: 'Select Vehicle Registration Number', value: null }}
-              style={pickerSelectStyles}
-              useNativeAndroidPickerStyle={false}
-              value={vehicleRegistrationNumber}
-            />
-
-            <Text style={styles.title}>NIC</Text>
+          <View style={styles.dateTimeItem}>
+            <Text style={styles.title}>Time</Text>
             <TextInput
-              style={styles.input}
-              placeholder="NIC"
-              onChangeText={text => setNic(text)}
-              value={nic}
+              style={[styles.input, styles.dateTimeInput]}
+              placeholder="Time (HH:mm)"
+              onChangeText={text => setSelectedTime(text)}
+              value={selectedTime}
             />
+          </View>
+        </View>
 
-            <Text style={styles.title}>Loss</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Loss"
-              onChangeText={text => setLoss(text)}
-              value={loss}
-            />
+        <Text style={styles.title}>Venue</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Venue"
+          onChangeText={text => setVenue(text)}
+          value={venue}
+        />
 
-            <Text style={styles.title}>Driver Injured Status</Text>
+        <Text style={styles.title}>Loss</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Loss"
+          onChangeText={text => setLoss(text)}
+          value={loss}
+        />
+
+<Text style={styles.title}>Driver Injured Status</Text>
             <View style={styles.buttonGroup}>
               
               <TouchableOpacity
@@ -230,45 +245,28 @@ export default function NewAccidentScreen({ navigation }) {
                 <Text style={[styles.buttonText, vehicleDamagedStatus === '1' && styles.selectedButtonText]}>Yes</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.title}>Special Notes</Text>
-            <TextInput
-              style={[styles.input, styles.specialNotesInput]}
-              placeholder="Special Notes (Optional)"
-              onChangeText={text => setSpecialNotes(text)}
-              value={specialNotes}
-              multiline
-              numberOfLines={4}
-            />
 
-            <Text style={styles.title}>Upload Images</Text>
-            <View style={styles.imageContainer}>
-              {images.map((image, index) => (
-                <Image key={index} source={{ uri: image.uri }} style={styles.image} />
-              ))}
-              {images.length < 5 && (
-                <TouchableOpacity style={styles.imageUploadButton} onPress={pickImage}>
-                  <Text style={styles.imageUploadButtonText}>+</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+        <Text style={styles.title}>Special Notes</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Special Notes"
+          onChangeText={text => setSpecialNotes(text)}
+          value={specialNotes}
+        />
 
-            <View style={[styles.buttonContainer, isKeyboardVisible && styles.buttonContainerSmall]}>
-              <Button title="Cancel" onPress={handleCancel} type="cancel" />
-              <Button title="Save" onPress={handleSave} />
-            </View>
-          </View>
-        </ScrollView>
-        {!isKeyboardVisible && <View style={styles.footer}></View>}
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <Text style={styles.title}>Upload Images</Text>
+        <View style={[styles.buttonContainer, isKeyboardVisible && styles.buttonContainerSmall]}>
+          <Button title="Cancel" onPress={handleCancel} type="cancel" />
+          <Button title="Save" onPress={handleSave} type="primary" />
+        </View>
+      </ScrollView>
+
+      {!isKeyboardVisible && <View style={styles.footer}></View>}
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#e3e8ee',
-  },
   container: {
     flex: 1,
     backgroundColor: '#e3e8ee',
@@ -277,10 +275,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'space-between',
     paddingVertical: 20,
-    paddingBottom: 120, // Ensure there's enough space at the bottom for the buttons
-  },
-  innerContainer: {
-    paddingBottom: 20,
   },
   headerTitle: {
     fontSize: 26,
@@ -297,6 +291,17 @@ const styles = StyleSheet.create({
     marginLeft: '12%',
     color: '#494873',
   },
+  value: {
+    fontSize: 18,
+    fontWeight: '500',
+    width: '75%',
+    height: 30,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: '5%',
+    backgroundColor: '#f7f7f7',
+    marginLeft: '12%',
+  },
   input: {
     fontSize: 18,
     width: '75%',
@@ -308,11 +313,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7f7f7',
     marginLeft: '12%',
   },
+  dateTimeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: '5%',
+    marginLeft: '6%',
+  },
   dateTimeItem: {
-    marginBottom: 15,
+    flex: 1,
+    marginRight: '2%',
   },
   dateTimeInput: {
-    width: '75%',
+    width: '62%',
   },
   buttonGroup: {
     flexDirection: 'row',
@@ -341,32 +353,6 @@ const styles = StyleSheet.create({
   selectedButtonText: {
     color: '#fff',
   },
-  imageContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: '12%',
-  },
-  image: {
-    width: 60,
-    height: 60,
-    marginRight: 10,
-    marginBottom: 10,
-    borderRadius: 5,
-  },
-  imageUploadButton: {
-    width: 60,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#e3e8ee',
-    borderColor: '#494873',
-    borderWidth: 1,
-    borderRadius: 5,
-  },
-  imageUploadButtonText: {
-    fontSize: 24,
-    color: '#494873',
-  },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -382,27 +368,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#393970',
     height: 60,
   },
-  specialNotesInput: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
 });
 
 const pickerSelectStyles = StyleSheet.create({
   inputAndroid: {
-    fontSize: 18,
-    fontWeight: '500',
+    fontSize: 16,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: '#f7f7f7',
     borderRadius: 5,
-    paddingRight: 30, // to ensure the text is not overlapping the dropdown icon
+    paddingRight: 30,
     backgroundColor: '#f7f7f7',
     marginLeft: '12%',
-    marginBottom: '5%',
-    color: '#000',
+    marginBottom: 20,
     width: '75%',
     height: 35,
-  },
+  }
 });
