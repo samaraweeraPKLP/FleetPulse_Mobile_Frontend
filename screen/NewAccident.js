@@ -1,18 +1,56 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform, TouchableOpacity, Image } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, TextInput, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform, Alert, Keyboard, Image, TouchableOpacity } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import BackArrow from '../components/BackArrow';
 import Button from '../components/Button';
+import axios from 'axios';
+import RNPickerSelect from 'react-native-picker-select';
+import { GET_ALL_VEHICLES_ENDPOINT, CREATE_ACCIDENT_ENDPOINT } from '../apiConfig'; // Add your API endpoint for creating an accident
 
 export default function NewAccidentScreen({ navigation }) {
-  const [date, setDate] = useState(new Date().toLocaleDateString());
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [location, setLocation] = useState('');
   const [vehicleRegistrationNumber, setVehicleRegistrationNumber] = useState('');
-  const [driverNic, setDriverNic] = useState('');
-  const [helperNic, setHelperNic] = useState('');
+  const [nic, setNic] = useState('');
   const [loss, setLoss] = useState('');
+  const [driverInjuredStatus, setDriverInjuredStatus] = useState('');
+  const [helperInjuredStatus, setHelperInjuredStatus] = useState('');
+  const [vehicleDamagedStatus, setVehicleDamagedStatus] = useState('');
+  const [specialNotes, setSpecialNotes] = useState(''); // Added state for special notes
   const [images, setImages] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        const response = await axios.get(GET_ALL_VEHICLES_ENDPOINT);
+        setVehicles(response.data.map(vehicle => ({
+          label: vehicle.vehicleRegistrationNo,
+          value: vehicle.vehicleRegistrationNo
+        })));
+        setLoading(false);
+      } catch (error) {
+        Alert.alert('Error', `An error occurred while fetching vehicles: ${error.message}`);
+        setLoading(false);
+      }
+    };
+
+    fetchVehicles();
+
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   const handleBack = () => {
     navigation.goBack();
@@ -20,17 +58,58 @@ export default function NewAccidentScreen({ navigation }) {
 
   const handleCancel = () => {
     // Reset all input fields
-    setDate(new Date().toLocaleDateString());
+    setDate(new Date().toISOString().split('T')[0]);
     setLocation('');
     setVehicleRegistrationNumber('');
-    setDriverNic('');
-    setHelperNic('');
+    setNic('');
     setLoss('');
+    setDriverInjuredStatus('');
+    setHelperInjuredStatus('');
+    setVehicleDamagedStatus('');
+    setSpecialNotes(''); // Reset special notes
     setImages([]);
   };
 
-  const handleSave = () => {
-    // Handle save functionality
+  const handleSave = async () => {
+    if (!date || !location || !vehicleRegistrationNumber || !nic || !loss || !driverInjuredStatus || !helperInjuredStatus || !vehicleDamagedStatus) {
+      Alert.alert('Validation Error', 'All fields are required.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('Venue', location);
+    formData.append('DateTime', date);
+    formData.append('SpecialNotes', specialNotes); // Add special notes
+    formData.append('Loss', loss);
+    formData.append('DriverInjuredStatus', driverInjuredStatus);
+    formData.append('HelperInjuredStatus', helperInjuredStatus);
+    formData.append('VehicleDamagedStatus', vehicleDamagedStatus);
+    formData.append('NIC', nic);
+    formData.append('VehicleRegistrationNo', vehicleRegistrationNumber);
+
+    images.forEach((image, index) => {
+      formData.append('Photos', {
+        uri: image.uri,
+        type: 'image/jpeg', // Update if needed based on image type
+        name: `photo${index}.jpg`,
+      });
+    });
+
+    try {
+      const response = await axios.post(CREATE_ACCIDENT_ENDPOINT, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.status === 201) {
+        Alert.alert('Success', 'Accident report saved successfully.');
+        handleCancel(); // Reset form fields
+        navigation.goBack(); // Navigate back after successful save
+      }
+    } catch (error) {
+      Alert.alert('Error', `An error occurred while saving the accident report: ${error.message}`);
+    }
   };
 
   const pickImage = async () => {
@@ -51,16 +130,17 @@ export default function NewAccidentScreen({ navigation }) {
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
+        <BackArrow onPress={handleBack} />
+        <Text style={styles.headerTitle}>New Accident Report</Text>
+
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <View style={styles.innerContainer}>
-            <BackArrow onPress={handleBack} />
-            <Text style={styles.headerTitle}>New Accident Report</Text>
-
+            
             <View style={styles.dateTimeItem}>
               <Text style={styles.title}>Date</Text>
               <TextInput
                 style={[styles.input, styles.dateTimeInput]}
-                placeholder="Date (DD/MM/YYYY)"
+                placeholder="Date (YYYY-MM-DD)"
                 onChangeText={text => setDate(text)}
                 value={date}
               />
@@ -75,31 +155,21 @@ export default function NewAccidentScreen({ navigation }) {
             />
 
             <Text style={styles.title}>Vehicle Registration Number</Text>
-            <Picker
-              selectedValue={vehicleRegistrationNumber}
-              style={styles.picker}
-              onValueChange={(itemValue) => setVehicleRegistrationNumber(itemValue)}
-            >
-              <Picker.Item label="Select Vehicle" value="" />
-              <Picker.Item label="ABC-1234" value="ABC-1234" />
-              <Picker.Item label="DEF-5678" value="DEF-5678" />
-              <Picker.Item label="GHI-9012" value="GHI-9012" />
-            </Picker>
-
-            <Text style={styles.title}>Driver NIC</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Driver NIC"
-              onChangeText={text => setDriverNic(text)}
-              value={driverNic}
+            <RNPickerSelect
+              onValueChange={value => setVehicleRegistrationNumber(value)}
+              items={vehicles}
+              placeholder={{ label: 'Select Vehicle Registration Number', value: null }}
+              style={pickerSelectStyles}
+              useNativeAndroidPickerStyle={false}
+              value={vehicleRegistrationNumber}
             />
 
-            <Text style={styles.title}>Helper NIC</Text>
+            <Text style={styles.title}>NIC</Text>
             <TextInput
               style={styles.input}
-              placeholder="Helper NIC"
-              onChangeText={text => setHelperNic(text)}
-              value={helperNic}
+              placeholder="NIC"
+              onChangeText={text => setNic(text)}
+              value={nic}
             />
 
             <Text style={styles.title}>Loss</Text>
@@ -110,6 +180,67 @@ export default function NewAccidentScreen({ navigation }) {
               value={loss}
             />
 
+            
+
+            <Text style={styles.title}>Driver Injured Status</Text>
+            <View style={styles.buttonGroup}>
+              
+              <TouchableOpacity
+                style={[styles.button, driverInjuredStatus === '0' && styles.selectedButton]}
+                onPress={() => setDriverInjuredStatus('0')}
+              >
+                <Text style={[styles.buttonText, driverInjuredStatus === '0' && styles.selectedButtonText]}>No</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, driverInjuredStatus === '1' && styles.selectedButton]}
+                onPress={() => setDriverInjuredStatus('1')}
+              >
+                <Text style={[styles.buttonText, driverInjuredStatus === '1' && styles.selectedButtonText]}>Yes</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.title}>Helper Injured Status</Text>
+            <View style={styles.buttonGroup}>
+              
+              <TouchableOpacity
+                style={[styles.button, helperInjuredStatus === '0' && styles.selectedButton]}
+                onPress={() => setHelperInjuredStatus('0')}
+              >
+                <Text style={[styles.buttonText, helperInjuredStatus === '0' && styles.selectedButtonText]}>No</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, helperInjuredStatus === '1' && styles.selectedButton]}
+                onPress={() => setHelperInjuredStatus('1')}
+              >
+                <Text style={[styles.buttonText, helperInjuredStatus === '1' && styles.selectedButtonText]}>Yes</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.title}>Vehicle Damaged Status</Text>
+            <View style={styles.buttonGroup}>
+             
+              <TouchableOpacity
+                style={[styles.button, vehicleDamagedStatus === '0' && styles.selectedButton]}
+                onPress={() => setVehicleDamagedStatus('0')}
+              >
+                <Text style={[styles.buttonText, vehicleDamagedStatus === '0' && styles.selectedButtonText]}>No</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, vehicleDamagedStatus === '1' && styles.selectedButton]}
+                onPress={() => setVehicleDamagedStatus('1')}
+              >
+                <Text style={[styles.buttonText, vehicleDamagedStatus === '1' && styles.selectedButtonText]}>Yes</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.title}>Special Notes</Text>
+            <TextInput
+              style={[styles.input, styles.specialNotesInput]}
+              placeholder="Special Notes (Optional)"
+              onChangeText={text => setSpecialNotes(text)}
+              value={specialNotes}
+              multiline
+              numberOfLines={4}
+            />
             <Text style={styles.title}>Upload Images</Text>
             <View style={styles.imageContainer}>
               {images.map((image, index) => (
@@ -121,14 +252,15 @@ export default function NewAccidentScreen({ navigation }) {
                 </TouchableOpacity>
               )}
             </View>
+            
 
-            <View style={styles.buttonContainer}>
-              <Button title="Cancel" onPress={handleCancel} style={[styles.button, styles.cancelButton]} />
-              <Button title="Save" onPress={handleSave} style={styles.button} />
+            <View style={[styles.buttonContainer, isKeyboardVisible && styles.buttonContainerSmall]}>
+              <Button title="Cancel" onPress={handleCancel} type="cancel" />
+              <Button title="Save" onPress={handleSave} />
             </View>
           </View>
         </ScrollView>
-        <View style={styles.footer}></View>
+        {!isKeyboardVisible && <View style={styles.footer}></View>}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -141,14 +273,16 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    backgroundColor: '#e3e8ee',
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'flex-start',
-    paddingBottom: 60, // Ensure content does not overlap footer
+    justifyContent: 'space-between',
+    paddingVertical: 20,
+    paddingBottom: 120, // Ensure there's enough space at the bottom for the buttons
   },
   innerContainer: {
-    paddingBottom: 20, // Ensure content does not overlap footer
+    paddingBottom: 20,
   },
   headerTitle: {
     fontSize: 26,
@@ -166,6 +300,7 @@ const styles = StyleSheet.create({
     color: '#494873',
   },
   input: {
+    fontSize: 18,
     width: '75%',
     height: 30,
     borderRadius: 5,
@@ -175,18 +310,38 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7f7f7',
     marginLeft: '12%',
   },
-  picker: {
-    width: '75%',
-    height: 40,
-    marginBottom: '5%',
-    backgroundColor: '#f7f7f7',
-    marginLeft: '12%',
-  },
   dateTimeItem: {
     marginBottom: 15,
   },
   dateTimeInput: {
     width: '75%',
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    width: '77%',
+    marginLeft: '11%',
+  },
+  button: {
+    flex: 1,
+    padding: 10,
+    backgroundColor: '#f7f7f7',
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 5,
+    height: 40,
+  },
+  selectedButton: {
+    backgroundColor: '#393970',
+  },
+  buttonText: {
+    color: '#333',
+    fontWeight: '500',
+    fontSize: 18,
+  },
+  selectedButtonText: {
+    color: '#fff',
   },
   imageContainer: {
     flexDirection: 'row',
@@ -219,15 +374,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginHorizontal: '14%',
     alignItems: 'center',
+    marginTop: '5%',
+    marginBottom: 20, // Space for the footer
   },
-  button: {
-    flex: 1,
-    marginHorizontal: 10,
+  buttonContainerSmall: {
+    marginTop: 10,
   },
   footer: {
     backgroundColor: '#393970',
     height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  specialNotesInput: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+});
+
+const pickerSelectStyles = StyleSheet.create({
+  inputAndroid: {
+    fontSize: 18,
+    fontWeight: '500',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#f7f7f7',
+    borderRadius: 5,
+    paddingRight: 30, // to ensure the text is not overlapping the dropdown icon
+    backgroundColor: '#f7f7f7',
+    marginLeft: '12%',
+    marginBottom: '5%',
+    color: '#000',
+    width: '75%',
+    height: 35,
   },
 });
