@@ -1,23 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TextInput, ScrollView, KeyboardAvoidingView, Platform, Keyboard, Alert ,TouchableOpacity} from 'react-native';
+import { StyleSheet, View, Text, TextInput, ScrollView, KeyboardAvoidingView, Platform, Keyboard, Alert, TouchableOpacity, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import * as ImagePicker from 'expo-image-picker';
+import RNPickerSelect from 'react-native-picker-select';
 import BackArrow from '../components/BackArrow';
 import Button from '../components/Button';
 import { USER_PROFILE_ENDPOINT, GET_ALL_VEHICLES_ENDPOINT, ADD_ACCIDENT_ENDPOINT } from '../apiConfig';
-import axios from 'axios';
-import RNPickerSelect from 'react-native-picker-select';
 
 export default function NewAccidentScreen({ navigation }) {
   const [nicNumber, setNicNumber] = useState('');
   const [vehicleRegistrationNumber, setVehicleRegistrationNumber] = useState('');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
+  const [dateTime, setDateTime] = useState('');
   const [venue, setVenue] = useState('');
   const [specialNotes, setSpecialNotes] = useState('');
   const [loss, setLoss] = useState('');
   const [driverInjuredStatus, setDriverInjuredStatus] = useState(false);
   const [helperInjuredStatus, setHelperInjuredStatus] = useState(false);
   const [vehicleDamagedStatus, setVehicleDamagedStatus] = useState(false);
+  const [images, setImages] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
@@ -49,11 +50,9 @@ export default function NewAccidentScreen({ navigation }) {
           value: vehicle.vehicleRegistrationNo
         })));
 
-        const today = new Date();
-        const formattedDate = today.toISOString().split('T')[0];
-        setSelectedDate(formattedDate);
-        const formattedTime = `${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')}`;
-        setSelectedTime(formattedTime);
+        const now = new Date();
+const formattedDateTime = `${now.toISOString().split('T')[0]}  ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`;
+setDateTime(formattedDateTime);
 
         setLoading(false);
       } catch (error) {
@@ -89,10 +88,9 @@ export default function NewAccidentScreen({ navigation }) {
     setDriverInjuredStatus(false);
     setHelperInjuredStatus(false);
     setVehicleDamagedStatus(false);
-    const today = new Date();
-    setSelectedDate(today.toISOString().split('T')[0]);
-    const formattedTime = `${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')}`;
-    setSelectedTime(formattedTime);
+    const now = new Date();
+    const formattedDateTime = `${now.toISOString().split('T')[0]}T${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`;
+    setDateTime(formattedDateTime);
   };
 
   const handleSave = async () => {
@@ -104,28 +102,35 @@ export default function NewAccidentScreen({ navigation }) {
       }
 
       const accidentData = {
-        NIC: nicNumber,
-        VehicleRegistrationNo: vehicleRegistrationNumber,
-        Date: selectedDate,
-        Time: selectedTime,
-        Venue: venue,
-        SpecialNotes: specialNotes,
-        Loss: loss,
-        DriverInjuredStatus: driverInjuredStatus ? 1 : 0,
-        HelperInjuredStatus: helperInjuredStatus ? 1 : 0,
-        VehicleDamagedStatus: vehicleDamagedStatus ? 1 : 0,
-        Status: true
+        accidentId: 0,
+        venue,
+        dateTime: dateTime.replace('  ', 'T'),
+        specialNotes,
+        loss: parseFloat(loss),
+        driverInjuredStatus,
+        helperInjuredStatus,
+        vehicleDamagedStatus,
+        vehicleRegistrationNo: vehicleRegistrationNumber,
+        nic: nicNumber,
+        status: true,
       };
 
-      console.log('Accident Data:', accidentData);
+      if (images.length > 0) {
+        accidentData.photos = images;
+      }
+
+      console.log('Sending data to backend:', accidentData);
 
       const response = await axios.post(ADD_ACCIDENT_ENDPOINT, accidentData, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
-      if (response.status === 201) {
+      if (response.status === 200) {
         Alert.alert('Success', 'Accident data saved successfully.');
-        handleCancel(); // Reset form fields
+        handleCancel();
         navigation.goBack();
       } else {
         Alert.alert('Error', 'Failed to save accident data.');
@@ -133,6 +138,45 @@ export default function NewAccidentScreen({ navigation }) {
     } catch (error) {
       Alert.alert('Error', `An error occurred: ${error.message}`);
     }
+  };
+
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission Denied', 'Permission to access the gallery is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const { uri } = result.assets[0];
+      const base64 = await getBase64(uri);
+      setImages([...images, base64]);
+    }
+  };
+
+  const getBase64 = (uri) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = () => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve(reader.result.split(',')[1]);
+        };
+        reader.readAsDataURL(xhr.response);
+      };
+      xhr.onerror = () => reject(new Error('Failed to convert image to Base64'));
+      xhr.open('GET', uri);
+      xhr.responseType = 'blob';
+      xhr.send();
+    });
   };
 
   return (
@@ -157,27 +201,13 @@ export default function NewAccidentScreen({ navigation }) {
           value={vehicleRegistrationNumber}
         />
 
-        <View style={styles.dateTimeContainer}>
-          <View style={styles.dateTimeItem}>
-            <Text style={styles.title}>Date</Text>
-            <TextInput
-              style={[styles.input, styles.dateTimeInput]}
-              placeholder="Date (YYYY-MM-DD)"
-              onChangeText={text => setSelectedDate(text)}
-              value={selectedDate}
-            />
-          </View>
-
-          <View style={styles.dateTimeItem}>
-            <Text style={styles.title}>Time</Text>
-            <TextInput
-              style={[styles.input, styles.dateTimeInput]}
-              placeholder="Time (HH:mm)"
-              onChangeText={text => setSelectedTime(text)}
-              value={selectedTime}
-            />
-          </View>
-        </View>
+        <Text style={styles.title}>Date and Time</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Date and Time (YYYY-MM-DDTHH:mm:ss)"
+          onChangeText={text => setDateTime(text)}
+          value={dateTime}
+        />
 
         <Text style={styles.title}>Venue</Text>
         <TextInput
@@ -193,74 +223,86 @@ export default function NewAccidentScreen({ navigation }) {
           placeholder="Loss"
           onChangeText={text => setLoss(text)}
           value={loss}
+          keyboardType="numeric"
         />
 
-<Text style={styles.title}>Driver Injured Status</Text>
-            <View style={styles.buttonGroup}>
-              
-              <TouchableOpacity
-                style={[styles.button, driverInjuredStatus === '0' && styles.selectedButton]}
-                onPress={() => setDriverInjuredStatus('0')}
-              >
-                <Text style={[styles.buttonText, driverInjuredStatus === '0' && styles.selectedButtonText]}>No</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, driverInjuredStatus === '1' && styles.selectedButton]}
-                onPress={() => setDriverInjuredStatus('1')}
-              >
-                <Text style={[styles.buttonText, driverInjuredStatus === '1' && styles.selectedButtonText]}>Yes</Text>
-              </TouchableOpacity>
-            </View>
+        <Text style={styles.title}>Driver Injured Status</Text>
+        <View style={styles.buttonGroup}>
+          <TouchableOpacity
+            style={[styles.button, driverInjuredStatus === false && styles.selectedButton]}
+            onPress={() => setDriverInjuredStatus(false)}
+          >
+            <Text style={[styles.buttonText, driverInjuredStatus === false && styles.selectedButtonText]}>No</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, driverInjuredStatus === true && styles.selectedButton]}
+            onPress={() => setDriverInjuredStatus(true)}
+          >
+            <Text style={[styles.buttonText, driverInjuredStatus === true && styles.selectedButtonText]}>Yes</Text>
+          </TouchableOpacity>
+        </View>
 
-            <Text style={styles.title}>Helper Injured Status</Text>
-            <View style={styles.buttonGroup}>
-              
-              <TouchableOpacity
-                style={[styles.button, helperInjuredStatus === '0' && styles.selectedButton]}
-                onPress={() => setHelperInjuredStatus('0')}
-              >
-                <Text style={[styles.buttonText, helperInjuredStatus === '0' && styles.selectedButtonText]}>No</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, helperInjuredStatus === '1' && styles.selectedButton]}
-                onPress={() => setHelperInjuredStatus('1')}
-              >
-                <Text style={[styles.buttonText, helperInjuredStatus === '1' && styles.selectedButtonText]}>Yes</Text>
-              </TouchableOpacity>
-            </View>
+        <Text style={styles.title}>Helper Injured Status</Text>
+        <View style={styles.buttonGroup}>
+          <TouchableOpacity
+            style={[styles.button, helperInjuredStatus === false && styles.selectedButton]}
+            onPress={() => setHelperInjuredStatus(false)}
+          >
+            <Text style={[styles.buttonText, helperInjuredStatus === false && styles.selectedButtonText]}>No</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, helperInjuredStatus === true && styles.selectedButton]}
+            onPress={() => setHelperInjuredStatus(true)}
+          >
+            <Text style={[styles.buttonText, helperInjuredStatus === true && styles.selectedButtonText]}>Yes</Text>
+          </TouchableOpacity>
+        </View>
 
-            <Text style={styles.title}>Vehicle Damaged Status</Text>
-            <View style={styles.buttonGroup}>
-             
-              <TouchableOpacity
-                style={[styles.button, vehicleDamagedStatus === '0' && styles.selectedButton]}
-                onPress={() => setVehicleDamagedStatus('0')}
-              >
-                <Text style={[styles.buttonText, vehicleDamagedStatus === '0' && styles.selectedButtonText]}>No</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, vehicleDamagedStatus === '1' && styles.selectedButton]}
-                onPress={() => setVehicleDamagedStatus('1')}
-              >
-                <Text style={[styles.buttonText, vehicleDamagedStatus === '1' && styles.selectedButtonText]}>Yes</Text>
-              </TouchableOpacity>
-            </View>
+        <Text style={styles.title}>Vehicle Damaged Status</Text>
+        <View style={styles.buttonGroup}>
+          <TouchableOpacity
+            style={[styles.button, vehicleDamagedStatus === false && styles.selectedButton]}
+            onPress={() => setVehicleDamagedStatus(false)}
+          >
+            <Text style={[styles.buttonText, vehicleDamagedStatus === false && styles.selectedButtonText]}>No</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, vehicleDamagedStatus === true && styles.selectedButton]}
+            onPress={() => setVehicleDamagedStatus(true)}
+          >
+            <Text style={[styles.buttonText, vehicleDamagedStatus === true && styles.selectedButtonText]}>Yes</Text>
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.title}>Special Notes</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, styles.textArea]}
           placeholder="Special Notes"
           onChangeText={text => setSpecialNotes(text)}
           value={specialNotes}
+          multiline
         />
 
         <Text style={styles.title}>Upload Images</Text>
-        <View style={[styles.buttonContainer, isKeyboardVisible && styles.buttonContainerSmall]}>
-          <Button title="Cancel" onPress={handleCancel} type="cancel" />
-          <Button title="Save" onPress={handleSave} type="primary" />
+      
+        <View style={styles.imageContainer}>
+          {images.map((image, index) => (
+            <Image
+              key={index}
+              source={{ uri: `data:image/jpeg;base64,${image}` }}
+              style={styles.image}
+            />
+          ))}
+          <TouchableOpacity style={styles.addButton} onPress={pickImage}>
+            <Text style={styles.addButtonText}>+</Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
 
+        <View style={[styles.buttonContainer, isKeyboardVisible && styles.buttonContainerSmall]}>
+            <Button title="Cancel" onPress={handleCancel} type="cancel" />
+            <Button title="Save" onPress={handleSave} />
+          </View>
+      </ScrollView>
       {!isKeyboardVisible && <View style={styles.footer}></View>}
     </KeyboardAvoidingView>
   );
@@ -272,9 +314,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e3e8ee',
   },
   scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'space-between',
-    paddingVertical: 20,
+    padding: 20,
   },
   headerTitle: {
     fontSize: 26,
@@ -313,45 +353,57 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7f7f7',
     marginLeft: '12%',
   },
-  dateTimeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: '5%',
-    marginLeft: '6%',
-  },
-  dateTimeItem: {
-    flex: 1,
-    marginRight: '2%',
-  },
-  dateTimeInput: {
-    width: '62%',
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
   },
   buttonGroup: {
     flexDirection: 'row',
-    marginBottom: 20,
-    width: '77%',
-    marginLeft: '11%',
+    marginBottom: 15,
+    width: '78%',
+    height: 40,
+    marginLeft: '12%',
   },
   button: {
     flex: 1,
     padding: 10,
-    backgroundColor: '#f7f7f7',
-    borderRadius: 4,
+    borderRadius: 5,
+    borderColor: '#393970',
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 5,
-    height: 40,
+    marginRight: 10,
   },
   selectedButton: {
     backgroundColor: '#393970',
   },
   buttonText: {
-    color: '#333',
-    fontWeight: '500',
-    fontSize: 18,
+    color: '#393970',
+    fontWeight: 'bold',
+    
   },
   selectedButtonText: {
     color: '#fff',
+  },
+  uploadButton: {
+    color: '#393970',
+    fontWeight: 'bold',
+    marginBottom: 10,
+    marginLeft: '12%',
+  },
+  imageContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  image: {
+    width: 100,
+    height: 100,
+    margin: 5,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -362,27 +414,61 @@ const styles = StyleSheet.create({
     marginBottom: 20, // Space for the footer
   },
   buttonContainerSmall: {
-    marginTop: 10,
+    marginTop: 10, // Adjust as per your spacing preference
   },
   footer: {
     backgroundColor: '#393970',
     height: 60,
   },
+  footer: {
+    backgroundColor: '#393970',
+    height: 60,
+  },
+  imageContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginVertical: 8,
+    marginLeft: '12%',
+  },
+  image: {
+    width: 80,
+    height: 80,
+    margin: 4,
+    borderRadius: 8,
+  },
+  addButton: {
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    margin: 4,
+    backgroundColor: '#e0e0e0',
+  },
+  addButtonText: {
+    fontSize: 36,
+    color: '#007BFF',
+  },
 });
+
 
 const pickerSelectStyles = StyleSheet.create({
   inputAndroid: {
-    fontSize: 16,
+    fontSize: 14,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: '#f7f7f7',
     borderRadius: 5,
-    paddingRight: 30,
+    paddingRight: 30, // to ensure the text is not overlapping the dropdown icon
     backgroundColor: '#f7f7f7',
     marginLeft: '12%',
-    marginBottom: 20,
+    marginBottom: '5%',
+    color: '#000',
     width: '75%',
     height: 35,
-  }
+
+  },
 });
