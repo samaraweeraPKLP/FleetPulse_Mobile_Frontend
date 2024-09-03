@@ -51,8 +51,8 @@ export default function NewAccidentScreen({ navigation }) {
         })));
 
         const now = new Date();
-const formattedDateTime = `${now.toISOString().split('T')[0]}  ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`;
-setDateTime(formattedDateTime);
+        const formattedDateTime = `${now.toISOString().split('T')[0]}  ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`;
+        setDateTime(formattedDateTime);
 
         setLoading(false);
       } catch (error) {
@@ -89,8 +89,9 @@ setDateTime(formattedDateTime);
     setHelperInjuredStatus(false);
     setVehicleDamagedStatus(false);
     const now = new Date();
-    const formattedDateTime = `${now.toISOString().split('T')[0]}T${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`;
+    const formattedDateTime = `${now.toISOString().split('T')[0]}  ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`;
     setDateTime(formattedDateTime);
+    setImages([]);
   };
 
   const handleSave = async () => {
@@ -101,30 +102,31 @@ setDateTime(formattedDateTime);
         return;
       }
 
-      const accidentData = {
-        accidentId: 0,
-        venue,
-        dateTime: dateTime.replace('  ', 'T'),
-        specialNotes,
-        loss: parseFloat(loss),
-        driverInjuredStatus,
-        helperInjuredStatus,
-        vehicleDamagedStatus,
-        vehicleRegistrationNo: vehicleRegistrationNumber,
-        nic: nicNumber,
-        status: true,
-      };
+      const formData = new FormData();
+      formData.append('Venue', venue);
+      formData.append('DateTime', dateTime.replace('  ', 'T'));
+      formData.append('SpecialNotes', specialNotes);
+      formData.append('Loss', parseFloat(loss).toString());
+      formData.append('DriverInjuredStatus', driverInjuredStatus.toString());
+      formData.append('HelperInjuredStatus', helperInjuredStatus.toString());
+      formData.append('VehicleDamagedStatus', vehicleDamagedStatus.toString());
+      formData.append('VehicleRegistrationNumber', vehicleRegistrationNumber);
+      formData.append('DriverNIC', nicNumber);
+      formData.append('Status', 'true');
 
-      if (images.length > 0) {
-        accidentData.photos = images;
-      }
+      // Add images to form data
+      images.forEach((image, index) => {
+        formData.append('Photos', {
+          uri: image.uri,
+          type: 'image/jpeg',
+          name: `image${index}.jpg`,
+        });
+      });
 
-      console.log('Sending data to backend:', accidentData);
-
-      const response = await axios.post(ADD_ACCIDENT_ENDPOINT, accidentData, {
+      const response = await axios.post(ADD_ACCIDENT_ENDPOINT, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          'Content-Type': 'multipart/form-data',
         },
       });
 
@@ -156,27 +158,8 @@ setDateTime(formattedDateTime);
     });
 
     if (!result.canceled) {
-      const { uri } = result.assets[0];
-      const base64 = await getBase64(uri);
-      setImages([...images, base64]);
+      setImages([...images, result.assets[0]]);
     }
-  };
-
-  const getBase64 = (uri) => {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.onload = () => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          resolve(reader.result.split(',')[1]);
-        };
-        reader.readAsDataURL(xhr.response);
-      };
-      xhr.onerror = () => reject(new Error('Failed to convert image to Base64'));
-      xhr.open('GET', uri);
-      xhr.responseType = 'blob';
-      xhr.send();
-    });
   };
 
   return (
@@ -185,7 +168,7 @@ setDateTime(formattedDateTime);
       behavior={Platform.OS === 'ios' ? 'padding' : null}
     >
       <BackArrow onPress={handleBack} />
-      <Text style={styles.headerTitle}>Enter Accident Details</Text>
+      <Text style={styles.headerTitle}>Add Accident Details</Text>
 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <Text style={styles.title}>NIC No</Text>
@@ -284,20 +267,18 @@ setDateTime(formattedDateTime);
         />
 
         <Text style={styles.title}>Upload Images</Text>
-      
-        <View style={styles.imageContainer}>
+        <TouchableOpacity style={styles.addButton} onPress={pickImage}>
+            <Text style={styles.addButtonText}>+</Text>
+          </TouchableOpacity>
+          <View style={styles.imageContainer}>
           {images.map((image, index) => (
             <Image
               key={index}
-              source={{ uri: `data:image/jpeg;base64,${image}` }}
+              source={{ uri: image.uri }}
               style={styles.image}
             />
           ))}
-          <TouchableOpacity style={styles.addButton} onPress={pickImage}>
-            <Text style={styles.addButtonText}>+</Text>
-          </TouchableOpacity>
         </View>
-
         <View style={[styles.buttonContainer, isKeyboardVisible && styles.buttonContainerSmall]}>
             <Button title="Cancel" onPress={handleCancel} type="cancel" />
             <Button title="Save" onPress={handleSave} />
@@ -385,12 +366,9 @@ const styles = StyleSheet.create({
   selectedButtonText: {
     color: '#fff',
   },
-  uploadButton: {
-    color: '#393970',
-    fontWeight: 'bold',
-    marginBottom: 10,
-    marginLeft: '12%',
-  },
+  
+
+
   imageContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -445,11 +423,12 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderRadius: 8,
     margin: 4,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#f7f7f7',
+    marginLeft: '12%'
   },
   addButtonText: {
     fontSize: 36,
-    color: '#007BFF',
+    color: '#393970',
   },
 });
 
