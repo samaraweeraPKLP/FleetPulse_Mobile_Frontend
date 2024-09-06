@@ -6,7 +6,7 @@ import { TRIP_ENDPOINT } from '../apiConfig';
 import axios from 'axios';
 
 const EndTripScreen = ({ route, navigation }) => {
-  const { NIC, VehicleRegistrationNo, StartDate, StartTime, StartMeterValue, Status } = route.params.tripData;
+  const { NIC, VehicleRegistrationNo, Date: StartDate, StartTime, StartMeterValue, Status } = route.params.tripData;
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -66,14 +66,14 @@ const EndTripScreen = ({ route, navigation }) => {
       const tripData = {
         NIC: NIC,
         VehicleRegistrationNo: VehicleRegistrationNo,
-        StartDate: StartDate,
+        Date: StartDate, // This should be updated to 'Date'
         StartTime: StartTime,
         StartMeterValue: StartMeterValue,
-        EndDate: endDate,
-        EndTime: endTime, // Save the updated real-time endTime
+        EndTime: endTime, // Only handle EndTime now
         EndMeterValue: parseFloat(endMeterValue),
         Status: Status,
       };
+      
 
       console.log('Sending trip data:', tripData);
 
@@ -152,7 +152,7 @@ const EndTripScreen = ({ route, navigation }) => {
         </View>
       </ScrollView>
 
-      {!isKeyboardVisible && <View style={styles.footer}></View>}
+      {!isKeyboardVisible && <View style={styles.footer}><Text style={styles.footerText}>© 2024 G3 Technology. All Rights Reserved.</Text></View>}
     </KeyboardAvoidingView>
   );
 }
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'space-between', // Ensure space between content and footer
+    justifyContent: 'space-between',
     paddingVertical: 20,
   },
   headerTitle: {
@@ -225,12 +225,19 @@ const styles = StyleSheet.create({
     marginTop: '30%',
   },
   buttonContainerSmall: {
-    marginTop: 10, // Adjust as per your spacing preference
+    marginTop: 10,
     marginBottom: 5,
   },
   footer: {
     backgroundColor: '#393970',
     height: 60,
+    justifyContent: 'center', // Center the text vertically
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#e3e8ee',
+    textAlign: 'center',
+    fontSize: 12,
   },
 });
 

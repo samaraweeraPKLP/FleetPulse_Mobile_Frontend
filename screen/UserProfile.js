@@ -230,7 +230,7 @@ export default function UserProfileScreen({ navigation, triggerRefresh }) {
           </TouchableOpacity>
         )}
       </View>
-      <View style={styles.footer}></View>
+      <View style={styles.footer}><Text style={styles.footerText}>© 2024 G3 Technology. All Rights Reserved.</Text></View>
     </View>
   );
 }
@@ -287,6 +287,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    justifyContent: 'center', 
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#e3e8ee',
+    textAlign: 'center',
+    fontSize: 12,
   },
   label: {
     fontSize: 18,

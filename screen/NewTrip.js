@@ -62,7 +62,6 @@ export default function NewTripScreen({ navigation }) {
   
     fetchUserProfile();
 
-    // Add listeners for keyboard events
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
       setKeyboardVisible(true);
     });
@@ -70,14 +69,11 @@ export default function NewTripScreen({ navigation }) {
       setKeyboardVisible(false);
     });
 
-    // Clean up listeners
     return () => {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
     };
   }, []);
-
-  // Reset input fields when navigating back to this screen
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       setVehicleRegistrationNumber('');
@@ -92,13 +88,11 @@ export default function NewTripScreen({ navigation }) {
   };
 
   const handleCancel = () => {
-    // Reset all input fields
     setVehicleRegistrationNumber('');
     setMeterValue('');
   };
 
   const handleStart = async () => {
-    // Check if any required field is empty
     if (!vehicleRegistrationNumber || !selectedDate || !selectedTime || !meterValue) {
       Alert.alert('Error', 'Please fill in all fields to start the trip.');
       return;
@@ -108,7 +102,7 @@ export default function NewTripScreen({ navigation }) {
       const tripData = {
         NIC: nicNumber,
         VehicleRegistrationNo: vehicleRegistrationNumber,
-        StartDate: selectedDate,
+        Date: selectedDate,
         StartTime: selectedTime,
         StartMeterValue: parseFloat(meterValue),
         Status: true,
@@ -124,7 +118,6 @@ export default function NewTripScreen({ navigation }) {
       Alert.alert('Error', 'Failed to start trip. Please try again.');
     }
   };
-  
 
   return (
     <KeyboardAvoidingView
@@ -140,13 +133,13 @@ export default function NewTripScreen({ navigation }) {
 
         <Text style={styles.title}>Vehicle Registration Number</Text>
         <RNPickerSelect
-  onValueChange={value => setVehicleRegistrationNumber(value)}
-  items={vehicles}
-  placeholder={{ label: 'Select Vehicle Registration Number', value: null }}
-  style={pickerSelectStyles}
-  useNativeAndroidPickerStyle={false} // Ensure iOS and Android styles match
-  value={vehicleRegistrationNumber} // Set the default selected value here
-/>
+          onValueChange={value => setVehicleRegistrationNumber(value)}
+          items={vehicles}
+          placeholder={{ label: 'Select Vehicle Registration Number', value: null }}
+          style={pickerSelectStyles}
+          useNativeAndroidPickerStyle={false} // Ensure iOS and Android styles match
+          value={vehicleRegistrationNumber} // Set the default selected value here
+        />
 
         <View style={styles.dateTimeContainer}>
           <View style={styles.dateTimeItem}>
@@ -184,9 +177,7 @@ export default function NewTripScreen({ navigation }) {
           <Button title="Start" onPress={handleStart} style={styles.button} />
         </View>
       </ScrollView>
-
-      {/* Conditional rendering of footer based on keyboard visibility */}
-      {!isKeyboardVisible && <View style={styles.footer}></View>}
+      {!isKeyboardVisible && <View style={styles.footer}><Text style={styles.footerText}>© 2024 G3 Technology. All Rights Reserved.</Text></View>}
     </KeyboardAvoidingView>
   );
 }
@@ -198,7 +189,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'space-between', // Ensure space between content and footer
+    justifyContent: 'space-between',
     paddingVertical: 20,
   },
   headerTitle: {
@@ -258,16 +249,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: '30%'
   },
-  // cancelButton:{
-  //   backgroundColor:'gray',
-  // },
   buttonContainerSmall: {
-    marginTop: 10, // Adjust as per your spacing preference
+    marginTop: 10,
     marginBottom: 5
   },
   footer: {
     backgroundColor: '#393970',
     height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#e3e8ee',
+    textAlign: 'center',
+    fontSize: 12,
   },
   loadingContainer: {
     flex: 1,
@@ -285,7 +280,7 @@ const pickerSelectStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f7f7f7',
     borderRadius: 5,
-    paddingRight: 30, // to ensure the text is never behind the icon
+    paddingRight: 30,
     backgroundColor: '#f7f7f7',
     marginLeft: '12%',
     marginBottom: 20,

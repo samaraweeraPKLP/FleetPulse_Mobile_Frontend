@@ -214,7 +214,7 @@ export default function FuelRefillScreen({ navigation }) {
           </View>
         </ScrollView>
 
-        {!isKeyboardVisible && <View style={styles.footer}></View>}
+        {!isKeyboardVisible && <View style={styles.footer}><Text style={styles.footerText}>© 2024 G3 Technology. All Rights Reserved.</Text></View>}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -300,6 +300,13 @@ const styles = StyleSheet.create({
   footer: {
     backgroundColor: '#393970',
     height: 60,
+    justifyContent: 'center', // Center the text vertically
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#e3e8ee',
+    textAlign: 'center',
+    fontSize: 12,
   },
 });
 

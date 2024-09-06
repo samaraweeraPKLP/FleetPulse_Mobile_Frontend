@@ -31,7 +31,7 @@ export default function UPasswordUpdated({ user }) {
             <Text style={styles.loginButtonText}>Login</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.footer}></View>
+        <View style={styles.footer}><Text style={styles.footerText}>© 2024 G3 Technology. All Rights Reserved.</Text></View>
       </View>
     );
   }
@@ -80,5 +80,12 @@ export default function UPasswordUpdated({ user }) {
       bottom: 0,
       left: 0,
       right: 0,
+      justifyContent: 'center', 
+      alignItems: 'center',
+    },
+    footerText: {
+      color: '#e3e8ee',
+      textAlign: 'center',
+      fontSize: 12,
     },
   });

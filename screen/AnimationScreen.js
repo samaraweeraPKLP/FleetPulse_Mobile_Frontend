@@ -3,12 +3,12 @@ import { StyleSheet, View, Text, Image } from 'react-native';
 import * as Animatable from 'react-native-animatable';
 
 const AnimationScreen = ({ route, navigation }) => {
-  const { tripData } = route.params; // Destructure tripData from route.params
+  const { tripData } = route.params; 
   
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigation.navigate('End Trip', { tripData }); // Navigate to EndTripScreen with tripData
-    }, 2000); // Navigate to EndTripScreen after 1 second
+      navigation.navigate('End Trip', { tripData }); 
+    }, 2000); 
     return () => clearTimeout(timer);
   }, [navigation, tripData]);
 
@@ -22,8 +22,8 @@ const AnimationScreen = ({ route, navigation }) => {
       />
       
       <Animatable.Text 
-        animation="bounce" // Choose the animation you like
-        iterationCount="infinite" // Repeat the animation infinitely
+        animation="bounce" 
+        iterationCount="infinite" 
         style={styles.message}
       >
         Your Trip is Start Now.

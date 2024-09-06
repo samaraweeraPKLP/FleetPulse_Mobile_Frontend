@@ -17,10 +17,22 @@ export default function ChangePasswordScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [profilePicture, setProfilePicture] = useState(null);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-  const [isPasswordVisible, setPasswordVisible] = useState(false);
 
-  const togglePasswordVisibility = () => {
-    setPasswordVisible(!isPasswordVisible);
+  // Separate state for each password visibility
+  const [isOldPasswordVisible, setOldPasswordVisible] = useState(false);
+  const [isNewPasswordVisible, setNewPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
+
+  const toggleOldPasswordVisibility = () => {
+    setOldPasswordVisible(!isOldPasswordVisible);
+  };
+
+  const toggleNewPasswordVisibility = () => {
+    setNewPasswordVisible(!isNewPasswordVisible);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setConfirmPasswordVisible(!isConfirmPasswordVisible);
   };
 
   const resetForm = useCallback(() => {
@@ -124,12 +136,13 @@ export default function ChangePasswordScreen() {
             placeholder="Old Password"
             onChangeText={text => setOldPassword(text)}
             value={oldPassword}
-            secureTextEntry={!isPasswordVisible}
+            secureTextEntry={!isOldPasswordVisible}
           />
-          <TouchableOpacity onPress={togglePasswordVisibility}>
-            <Entypo name={isPasswordVisible ? 'eye-with-line' : 'eye'} style={styles.passwordIcon} />
+          <TouchableOpacity onPress={toggleOldPasswordVisibility}>
+            <Entypo name={isOldPasswordVisible ? 'eye-with-line' : 'eye'} style={styles.passwordIcon} />
           </TouchableOpacity>
         </View>
+
         <Text style={styles.title}>New Password</Text>
         <View style={styles.passwordInputContainer}>
           <TextInput
@@ -137,12 +150,13 @@ export default function ChangePasswordScreen() {
             placeholder="New Password"
             onChangeText={text => setNewPassword(text)}
             value={newPassword}
-            secureTextEntry={!isPasswordVisible}
+            secureTextEntry={!isNewPasswordVisible}
           />
-          <TouchableOpacity onPress={togglePasswordVisibility}>
-            <Entypo name={isPasswordVisible ? 'eye-with-line' : 'eye'} style={styles.passwordIcon} />
+          <TouchableOpacity onPress={toggleNewPasswordVisibility}>
+            <Entypo name={isNewPasswordVisible ? 'eye-with-line' : 'eye'} style={styles.passwordIcon} />
           </TouchableOpacity>
         </View>
+
         <Text style={styles.title}>Confirm New Password</Text>
         <View style={styles.passwordInputContainer}>
           <TextInput
@@ -150,10 +164,10 @@ export default function ChangePasswordScreen() {
             placeholder="Confirm New Password"
             onChangeText={text => setConfirmPassword(text)}
             value={confirmPassword}
-            secureTextEntry={!isPasswordVisible}
+            secureTextEntry={!isConfirmPasswordVisible}
           />
-          <TouchableOpacity onPress={togglePasswordVisibility}>
-            <Entypo name={isPasswordVisible ? 'eye-with-line' : 'eye'} style={styles.passwordIcon} />
+          <TouchableOpacity onPress={toggleConfirmPasswordVisibility}>
+            <Entypo name={isConfirmPasswordVisible ? 'eye-with-line' : 'eye'} style={styles.passwordIcon} />
           </TouchableOpacity>
         </View>
       </View>
@@ -162,7 +176,7 @@ export default function ChangePasswordScreen() {
         <Button title="Cancel" onPress={handleCancel} type="cancel" />
         <Button title="Save" onPress={handleResetPassword} style={styles.button} />
       </View>
-      <View style={[styles.footer, isKeyboardVisible && styles.footerHidden]}></View>
+      <View style={[styles.footer, isKeyboardVisible && styles.footerHidden]}><Text style={styles.footerText}>© 2024 G3 Technology. All Rights Reserved.</Text></View>
     </KeyboardAvoidingView>
   );
 }
@@ -179,14 +193,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 20,
     marginBottom: 10,
-  },
-  footer: {
-    backgroundColor: '#393970',
-    height: 60,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
   },
   footerHidden: {
     display: 'none',
@@ -245,7 +251,10 @@ const styles = StyleSheet.create({
   passwordIcon: {
     fontSize: 20,
     color: '#494873',
-    marginLeft: 10,
+    position: 'absolute',
+    right: 10,
+    bottom:-12
+    
   },
   errorMessage: {
     color: 'red',
@@ -260,5 +269,20 @@ const styles = StyleSheet.create({
   },
   button: {
     marginVertical: 5,
+  },
+  footer: {
+    backgroundColor: '#393970',
+    height: 60,
+    justifyContent: 'center', // Center the text vertically
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  footerText: {
+    color: '#e3e8ee',
+    textAlign: 'center',
+    fontSize: 12,
   },
 });
